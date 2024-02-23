@@ -1,0 +1,25 @@
+<form [formGroup]="addCityForm" (submit)="addCity()">
+    <table>
+        <tr>
+            <td>City: </td>
+            <td><input type="text" formControlName="city"></td>
+            <td><button type="submit" >Add</button></td>
+        </tr>
+        <div *ngIf=" cities$ | async as cities; else noCities">
+            <div *ngFor="let city of cities">
+                <tr>
+                   <td> <a [routerLink]="['/city', city]" >{{city}}</a></td>
+                   <td><button type="button" (click)="deleteCity(city)">Delete</button></td>
+                </tr>
+            </div>
+        </div>
+       
+        
+        <ng-template #noCities>
+            <tr>
+                <td>Add a city above</td>
+            </tr>
+        </ng-template>
+    </table>
+</form>
+
