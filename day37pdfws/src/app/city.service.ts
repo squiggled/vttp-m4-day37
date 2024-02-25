@@ -2,6 +2,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import Dexie from 'dexie';
 import { BehaviorSubject, Observable, Subject, firstValueFrom } from 'rxjs';
+import { CityName } from './models';
 
 @Injectable({
   providedIn: 'root'
@@ -9,10 +10,8 @@ import { BehaviorSubject, Observable, Subject, firstValueFrom } from 'rxjs';
 export class CityService extends Dexie{
   
 
-  private cities: string[] = ['singapore', 'new york'];
-  private citiesSubject = new Subject<string[]>(); //subjects are both observers and observables. 
-  //This means it can emit values to multiple subscribers and also subscribe to other observables.
-  // can have multiple compoenets subscribing to one subject
+  // private cities: string[] = ['singapore', 'new york'];
+  private citiesSubject = new BehaviorSubject<CityName[]>([]); //behavour subject must have an initial value
   cities$ = this.citiesSubject.asObservable();
 
   city!:string;
@@ -21,39 +20,42 @@ export class CityService extends Dexie{
   baseUrl:string = 'https://api.openweathermap.org/data/2%2E5/weather'; 
   //sample url: https://api.openweathermap.org/data/2.5/weather?q=new+york&appid=c83eae8a08ae4387fedd22606b7f4270
 
-  private user!:Dexie.Table<string, number>;
+  private cities!:Dexie.Table<CityName, number>;
 
   constructor(private httpClient: HttpClient){
     super('dexiedb');
     const COL_CITIES='cities';
-    this.version(1).stores({
-      [COL_CITIES]: '++id'
+    this.version(3).stores({
+      [COL_CITIES]: '++id, &name'
     })
+    this.cities=this.table(COL_CITIES);
+    //initial load - getcities returns a promise, so we unpack
+    this.getCities().then(
+      result => this.citiesSubject.next(result)
+    )
   }
 
-  addCity(city:string){
-    if (this.cities.includes(city)){
-      console.error("city already exists");
-    } else {
-      this.cities.push(city);
-      this.citiesSubject.next([...this.cities]) //use .next() to emit the new value (passed as argument) to all subscribers
+  getCities() : Promise<CityName[]>{
+    return this.cities.toArray();
+  }
+
+  async addCity(city: CityName){
+    await this.cities.add(city);
+    const allCities = await this.cities.toArray(); //get the new updated list
+    this.citiesSubject.next(allCities);
+    //then fire the new list as a subject
+  }
+
+  async deleteCity(cityName: string){
+    //setting up query using where/equals is sync, but .first()/.delete are async
+    const cityObject = await this.cities.where('name').equals(cityName).first(); //we need to await this
+    if (!!cityObject && cityObject.id!=undefined){
+      await this.cities.delete(cityObject.id);
+      const allCities = await this.cities.toArray();
+      this.citiesSubject.next(allCities);
     }
   }
-
-  deleteCity(city: string) {
-    const index = this.cities.indexOf(city);
-    this.cities.splice(index, 1);
-    this.citiesSubject.next([...this.cities]);
-  }
-
-  getCities(){
-    return [...this.cities];
-  }
-  //flow: data from list -> on add, we call the service directly. 
-  //addCity() in service will add the city to the list
-  //gene
-  //then when adding, we call next on the subject to pass it back to list
-  //in list, we subscribe to the observable in the service to get a new list
+ 
   getCityNameFromDeets(city:string): Promise<any>{
     this.city = decodeURI(city).replaceAll(" ", "+"); // decodeURI converts back to literal string entered
     var queryParams:HttpParams  = new HttpParams().set("q", city).set("appid", this.apiKey);

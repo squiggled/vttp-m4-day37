@@ -8,8 +8,8 @@
         <div *ngIf=" cities$ | async as cities; else noCities">
             <div *ngFor="let city of cities">
                 <tr>
-                   <td> <a [routerLink]="['/city', city]" >{{city}}</a></td>
-                   <td><button type="button" (click)="deleteCity(city)">Delete</button></td>
+                   <td> <a [routerLink]="['/city', city.name]" >{{city.name}}</a></td>
+                   <td><button type="button" (click)="deleteCity(city.name)">Delete</button></td>
                 </tr>
             </div>
         </div>
